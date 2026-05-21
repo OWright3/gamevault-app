@@ -1,6 +1,4 @@
-﻿uDownloadProgress
-sDownloadProgress
-ing gamevault.Converter;
+﻿using gamevault.Converter;
 using gamevault.Helper;
 using gamevault.Models;
 using gamevault.ViewModels;
@@ -273,7 +271,7 @@ namespace gamevault.UserControls
         }
         private void DownloadProgress(long totalFileSize, long currentBytesDownloaded, long totalBytesDownloaded, double? progressPercentage, long resumePosition)
         {
-            App.Current.Dispatcher.Invoke((Action)delegate
+            App.Current.Dispatcher.BeginInvoke((Action)delegate
             {
                 bool isResume = resumePosition != -1;
                 var numerator = isResume ? currentBytesDownloaded : totalBytesDownloaded;
@@ -296,9 +294,7 @@ namespace gamevault.UserControls
                 }
 
                 if (ViewModel.GameDownloadProgress == (int)progressPercentage)
-  DownloadProgress(
-     Dispatcher.Invoke
-                  {
+                {
                     return;
                 }
                 ViewModel.GameDownloadProgress = (int)progressPercentage;
@@ -337,15 +333,16 @@ namespace gamevault.UserControls
                 ToastMessageHelper.CreateToastMessage("Download Complete", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game.ID}.{ViewModel.Game.Metadata?.Cover?.ID}");
 
        if (SettingsViewModel.Instance.AutoExtract)
+        {
+            App.Current.Dispatcher.BeginInvoke((Action)(async () =>
             {
-                App.Current.Dispatcher.BeginInvoke((Action)(async () =>
-                {
-                    uiBtnExtract.IsEnabled = false;
-                    await Task.Delay(3000);
-                    uiBtnExtract.IsEnabled = true;
-                }));
-            };
-            }
+                uiBtnExtract.IsEnabled = false;
+                await Task.Delay(3000);
+                await Extract();
+                uiBtnExtract.IsEnabled = true;
+            }));
+        };
+        }
         }
 
         private void CancelDownload_Click(object sender, RoutedEventArgs e)
