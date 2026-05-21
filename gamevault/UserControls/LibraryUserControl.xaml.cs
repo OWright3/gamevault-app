@@ -13,6 +13,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Windows.Gaming.Input;
 
@@ -28,10 +29,8 @@ namespace gamevault.UserControls
 
         private bool scrollBlocked = false;
         private Guid searchCancellationToken = Guid.Empty;
-        private const int DefaultServerGameCardWidth = 178;
-        private const int MinServerGameCardWidth = 120;
-        private const int MaxServerGameCardWidth = 260;
-        private const double ServerGameCardAspectRatio = 267d / 178d;
+        private const double ServerGameCardOuterWidth = 197; // 178 width + 9 left margin + 10 right margin
+        private readonly Dictionary<ContentPresenter, Point> serverCardPositions = new Dictionary<ContentPresenter, Point>();
         public LibraryUserControl()
         {
             InitializeComponent();
@@ -61,55 +60,7 @@ namespace gamevault.UserControls
             uiFilterOrderBy.Unchecked += OrderBy_Changed;
 
             this.DataContext = ViewModel;
-            RestoreServerCardSize();
             InitTimer();
-        }
-        private void RestoreServerCardSize()
-        {
-            int cardWidth = DefaultServerGameCardWidth;
-            try
-            {
-                string storedWidth = Preferences.Get(AppConfigKey.ServerGameCardSize, LoginManager.Instance.GetUserProfile().UserConfigFile);
-                if (int.TryParse(storedWidth, out int parsedWidth))
-                {
-                    cardWidth = parsedWidth;
-                }
-            }
-            catch { }
-
-            SetServerCardSize(cardWidth);
-            uiServerCardSizeUpDown.Value = ViewModel.ServerGameCardWidth;
-        }
-
-        private void SetServerCardSize(double width)
-        {
-            if (width < MinServerGameCardWidth)
-            {
-                width = MinServerGameCardWidth;
-            }
-            else if (width > MaxServerGameCardWidth)
-            {
-                width = MaxServerGameCardWidth;
-            }
-
-            ViewModel.ServerGameCardWidth = width;
-            ViewModel.ServerGameCardHeight = Math.Round(width * ServerGameCardAspectRatio);
-        }
-
-        private void ServerCardSize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double?> e)
-        {
-            if (uiServerCardSizeUpDown == null || uiServerCardSizeUpDown.Value == null || ViewModel == null)
-            {
-                return;
-            }
-
-            SetServerCardSize(uiServerCardSizeUpDown.Value.Value);
-
-            try
-            {
-                Preferences.Set(AppConfigKey.ServerGameCardSize, ((int)ViewModel.ServerGameCardWidth).ToString(), LoginManager.Instance.GetUserProfile().UserConfigFile);
-            }
-            catch { }
         }
 
         private void UserControl_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -163,7 +114,7 @@ namespace gamevault.UserControls
             {
                 uiExpanderGameCards.IsExpanded = true;
             }
-            ScrollViewer itemScroll = ((ScrollViewer)uiServerGamesItemsControl.Template.FindName("PART_ItemsScroll", uiServerGamesItemsControl));
+            ScrollViewer? itemScroll = GetServerGamesScrollViewer();
             if (itemScroll != null)
             {
                 itemScroll.ScrollToTop();
@@ -174,7 +125,7 @@ namespace gamevault.UserControls
             string gameSortByFilter = ViewModel.SelectedGameFilterSortBy.Value;
             string gameOrderByFilter = (bool)uiFilterOrderBy.IsChecked ? "DESC" : "ASC";
             ViewModel.GameCards.Clear();
-            string filterUrl = @$"{SettingsViewModel.Instance.ServerUrl}/api/games?search={inputTimer.Data}&sortBy={gameSortByFilter}:{gameOrderByFilter}&limit=50";
+            string filterUrl = @$"{SettingsViewModel.Instance.ServerUrl}/api/games?search={inputTimer.Data}&sortBy={gameSortByFilter}:{gameOrderByFilter}&limit=100";
             filterUrl = ApplyFilter(filterUrl);
 
             PaginatedData<Game>? gameResult = await GetGamesData(filterUrl);
@@ -311,7 +262,7 @@ namespace gamevault.UserControls
 
             ViewModel.ScrollToTopVisibility = scrollPercentage > 10 ? Visibility.Visible : Visibility.Collapsed;
 
-            if (scrollBlocked == false && ViewModel.NextPage != null && scrollPercentage > 90)
+            if (scrollBlocked == false && ViewModel.NextPage != null && scrollPercentage > 80)
             {
                 scrollBlocked = true;
                 PaginatedData<Game>? gameResult = await GetGamesData(ViewModel.NextPage);
@@ -341,6 +292,98 @@ namespace gamevault.UserControls
             catch
             {
                 return null;
+            }
+        }
+
+        private void ServerGamesHeader_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (uiBtnRandomGame == null || uiServerGamesSearchBox == null)
+                return;
+
+            uiBtnRandomGame.Visibility = e.NewSize.Width < 760 ? Visibility.Collapsed : Visibility.Visible;
+            uiServerGamesSearchBox.MaxWidth = e.NewSize.Width < 900 ? 320 : 420;
+        }
+
+        private void ServerGamesScroll_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateServerGamesWrapWidth(e.NewSize.Width);
+        }
+
+        private WrapPanel? GetServerGamesWrapPanel()
+        {
+            try
+            {
+                return FindVisualChildren<WrapPanel>(uiServerGamesItemsControl).FirstOrDefault();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void UpdateServerGamesWrapWidth(double availableWidth)
+        {
+            WrapPanel? wrapPanel = GetServerGamesWrapPanel();
+            if (wrapPanel == null || availableWidth <= 0)
+                return;
+
+            double usableWidth = Math.Max(0, availableWidth - 12);
+            int columns = Math.Max(1, (int)Math.Floor(usableWidth / ServerGameCardOuterWidth));
+            wrapPanel.Width = columns * ServerGameCardOuterWidth;
+        }
+
+        private void ServerGamesItemsControl_LayoutUpdated(object sender, EventArgs e)
+        {
+            try
+            {
+                WrapPanel? wrapPanel = GetServerGamesWrapPanel();
+                if (wrapPanel == null)
+                    return;
+
+                foreach (ContentPresenter presenter in FindVisualChildren<ContentPresenter>(uiServerGamesItemsControl))
+                {
+                    if (presenter.Content == null)
+                        continue;
+
+                    Point currentPosition = presenter.TransformToAncestor(wrapPanel).Transform(new Point(0, 0));
+                    if (serverCardPositions.TryGetValue(presenter, out Point previousPosition))
+                    {
+                        double deltaX = previousPosition.X - currentPosition.X;
+                        double deltaY = previousPosition.Y - currentPosition.Y;
+
+                        if ((Math.Abs(deltaX) > 1 || Math.Abs(deltaY) > 1) && Math.Abs(deltaX) < 800 && Math.Abs(deltaY) < 800)
+                        {
+                            TranslateTransform transform = presenter.RenderTransform as TranslateTransform ?? new TranslateTransform();
+                            presenter.RenderTransform = transform;
+                            transform.X = deltaX;
+                            transform.Y = deltaY;
+
+                            IEasingFunction ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+                            transform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+                            transform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+                        }
+                    }
+
+                    serverCardPositions[presenter] = currentPosition;
+                }
+            }
+            catch { }
+        }
+
+        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null)
+                yield break;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < childCount; i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild)
+                    yield return typedChild;
+
+                foreach (T descendant in FindVisualChildren<T>(child))
+                    yield return descendant;
             }
         }
 
