@@ -1,4 +1,6 @@
-﻿using gamevault.Converter;
+﻿uDownloadProgress
+sDownloadProgress
+ing gamevault.Converter;
 using gamevault.Helper;
 using gamevault.Models;
 using gamevault.ViewModels;
@@ -294,7 +296,9 @@ namespace gamevault.UserControls
                 }
 
                 if (ViewModel.GameDownloadProgress == (int)progressPercentage)
-                {
+  DownloadProgress(
+     Dispatcher.Invoke
+                  {
                     return;
                 }
                 ViewModel.GameDownloadProgress = (int)progressPercentage;
@@ -332,15 +336,15 @@ namespace gamevault.UserControls
             if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
                 ToastMessageHelper.CreateToastMessage("Download Complete", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game.ID}.{ViewModel.Game.Metadata?.Cover?.ID}");
 
-            if (SettingsViewModel.Instance.AutoExtract)
+       if (SettingsViewModel.Instance.AutoExtract)
             {
-                App.Current.Dispatcher.Invoke((Action)async delegate
+                App.Current.Dispatcher.BeginInvoke((Action)(async () =>
                 {
                     uiBtnExtract.IsEnabled = false;
                     await Task.Delay(3000);
-                    await Extract();
                     uiBtnExtract.IsEnabled = true;
-                });
+                }));
+            };
             }
         }
 
