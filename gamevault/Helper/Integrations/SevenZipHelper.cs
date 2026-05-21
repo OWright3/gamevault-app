@@ -118,7 +118,7 @@ namespace gamevault.Helper
         
                 if (!string.IsNullOrEmpty(password))
                 {
-                    process.StartInfo.Arguments += $" -p{password}";
+                    process.StartInfo.Arguments += $" -p\"{password}\"";
                 }
         
                 process.EnableRaisingEvents = true;
@@ -166,7 +166,6 @@ namespace gamevault.Helper
             {
                 return exitCode;
             }
-        }
         }
         internal async Task PackArchive(string directoryToPack, string archiveName)
         {
