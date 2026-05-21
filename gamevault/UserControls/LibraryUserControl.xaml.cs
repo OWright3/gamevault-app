@@ -1,4 +1,4 @@
-﻿using gamevault.Helper;
+using gamevault.Helper;
 using gamevault.Models;
 using gamevault.ViewModels;
 using MahApps.Metro.Controls;
@@ -28,6 +28,10 @@ namespace gamevault.UserControls
 
         private bool scrollBlocked = false;
         private Guid searchCancellationToken = Guid.Empty;
+        private const int DefaultServerGameCardWidth = 178;
+        private const int MinServerGameCardWidth = 120;
+        private const int MaxServerGameCardWidth = 260;
+        private const double ServerGameCardAspectRatio = 267d / 178d;
         public LibraryUserControl()
         {
             InitializeComponent();
@@ -57,8 +61,57 @@ namespace gamevault.UserControls
             uiFilterOrderBy.Unchecked += OrderBy_Changed;
 
             this.DataContext = ViewModel;
+            RestoreServerCardSize();
             InitTimer();
         }
+        private void RestoreServerCardSize()
+        {
+            int cardWidth = DefaultServerGameCardWidth;
+            try
+            {
+                string storedWidth = Preferences.Get(AppConfigKey.ServerGameCardSize, LoginManager.Instance.GetUserProfile().UserConfigFile);
+                if (int.TryParse(storedWidth, out int parsedWidth))
+                {
+                    cardWidth = parsedWidth;
+                }
+            }
+            catch { }
+
+            SetServerCardSize(cardWidth);
+            uiServerCardSizeUpDown.Value = ViewModel.ServerGameCardWidth;
+        }
+
+        private void SetServerCardSize(double width)
+        {
+            if (width < MinServerGameCardWidth)
+            {
+                width = MinServerGameCardWidth;
+            }
+            else if (width > MaxServerGameCardWidth)
+            {
+                width = MaxServerGameCardWidth;
+            }
+
+            ViewModel.ServerGameCardWidth = width;
+            ViewModel.ServerGameCardHeight = Math.Round(width * ServerGameCardAspectRatio);
+        }
+
+        private void ServerCardSize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double?> e)
+        {
+            if (uiServerCardSizeUpDown == null || uiServerCardSizeUpDown.Value == null || ViewModel == null)
+            {
+                return;
+            }
+
+            SetServerCardSize(uiServerCardSizeUpDown.Value.Value);
+
+            try
+            {
+                Preferences.Set(AppConfigKey.ServerGameCardSize, ((int)ViewModel.ServerGameCardWidth).ToString(), LoginManager.Instance.GetUserProfile().UserConfigFile);
+            }
+            catch { }
+        }
+
         private void UserControl_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (this.IsVisible)
