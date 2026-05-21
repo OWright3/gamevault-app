@@ -95,67 +95,78 @@ namespace gamevault.Helper
             ProcessShepherd.Instance.RemoveProcess(process);
             return result;
         }
-        internal async Task<int> ExtractArchive(string archivePath, string outputDir, string password = "")
+        internal async Task<int> ExtractArchive(string archivePath, string outputDir, string password = "", bool cleanOutputDir = false)
         {
             int exitCode = -1;
+        
             await Task.Run(() =>
-             {
-                 process = new Process();
-                 ProcessShepherd.Instance.AddProcess(process);
-                 process.StartInfo = CreateProcessHeader();
-                 process.StartInfo.Arguments = $"x -y -bsp1 -o\"{outputDir}\" \"{archivePath}\"";
-                 if (password != "")
-                 {
-                     process.StartInfo.Arguments += $" -p{password}";
-                 }
-                 process.EnableRaisingEvents = true;
-                 process.ErrorDataReceived += (sender, e) =>
-                 {
-                     if (e.Data != null && e.Data.Contains("Wrong password"))
-                     {
-                         exitCode = 69;
-                     }
-                 };
-                 process.OutputDataReceived += (sender, e) =>
-                 {
-                     if (Process == null)
-                     {
-                         return;
-                     }
-                     if (e.Data != null && e.Data.Contains("%"))
-                     {
-                         int index = e.Data.IndexOf("%");
-                         string percentageStr = e.Data.Substring(0, index).Replace(" ", "");
-                         if (int.TryParse(percentageStr, out int percentage))
-                         {
-                             Process(this, new SevenZipProgressEventArgs(percentage));
-                         }
-                     }
-                 };
-
-                 if (!Directory.Exists(outputDir))
-                 {
-                     Directory.CreateDirectory(outputDir);
-                 }
-
-                 process.Start();
-                 process.BeginOutputReadLine();
-                 process.BeginErrorReadLine();
-                 process.WaitForExit();
-                 ProcessShepherd.Instance.RemoveProcess(process);
-             });
+            {
+                if (cleanOutputDir && Directory.Exists(outputDir))
+                {
+                    Directory.Delete(outputDir, true);
+                }
+        
+                if (!Directory.Exists(outputDir))
+                {
+                    Directory.CreateDirectory(outputDir);
+                }
+        
+                process = new Process();
+                ProcessShepherd.Instance.AddProcess(process);
+                process.StartInfo = CreateProcessHeader();
+                process.StartInfo.Arguments = $"x -y -bsp1 -o\"{outputDir}\" \"{archivePath}\"";
+        
+                if (!string.IsNullOrEmpty(password))
+                {
+                    process.StartInfo.Arguments += $" -p{password}";
+                }
+        
+                process.EnableRaisingEvents = true;
+        
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null && e.Data.Contains("Wrong password"))
+                    {
+                        exitCode = 69;
+                    }
+                };
+        
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (Process == null)
+                    {
+                        return;
+                    }
+        
+                    if (e.Data != null && e.Data.Contains("%"))
+                    {
+                        int index = e.Data.IndexOf("%");
+                        string percentageStr = e.Data.Substring(0, index).Replace(" ", "");
+        
+                        if (int.TryParse(percentageStr, out int percentage))
+                        {
+                            Process(this, new SevenZipProgressEventArgs(percentage));
+                        }
+                    }
+                };
+        
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                process.WaitForExit();
+        
+                ProcessShepherd.Instance.RemoveProcess(process);
+            });
+        
             try
             {
-                if (exitCode == -1)
-                {
-                    return process.ExitCode;
-                }
-                return exitCode;
+                return exitCode == -1 ? process.ExitCode : exitCode;
             }
             catch
             {
                 return exitCode;
             }
+        }
         }
         internal async Task PackArchive(string directoryToPack, string archiveName)
         {
