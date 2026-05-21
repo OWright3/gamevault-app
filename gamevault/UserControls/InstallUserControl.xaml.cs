@@ -1,4 +1,4 @@
-﻿using gamevault.Helper;
+using gamevault.Helper;
 using gamevault.Helper.Integrations;
 using gamevault.Models;
 using gamevault.ViewModels;
@@ -431,6 +431,15 @@ namespace gamevault.UserControls
         private void InstalledGames_Toggled(object sender, RoutedEventArgs e)
         {
             Preferences.Set(AppConfigKey.InstalledGamesOpen, uiInstalledGames.IsExpanded ? "1" : "0", LoginManager.Instance.GetUserProfile().UserConfigFile);
+        }
+
+        private void InstalledHeader_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (uiRowsPanel == null || uiInstalledGamesSearchBox == null)
+                return;
+
+            uiRowsPanel.Visibility = e.NewSize.Width < 680 ? Visibility.Collapsed : Visibility.Visible;
+            uiInstalledGamesSearchBox.MaxWidth = e.NewSize.Width < 850 ? 320 : 420;
         }
 
         private void RestoreRows()
