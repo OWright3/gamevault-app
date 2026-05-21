@@ -1,4 +1,4 @@
-﻿using gamevault.ViewModels;
+using gamevault.ViewModels;
 using MahApps.Metro.Controls;
 using gamevault.UserControls;
 using System.Linq;
@@ -109,8 +109,6 @@ namespace gamevault.Windows
             LoginManager.Instance.InitOnlineTimer();
             MainWindowViewModel.Instance.UserAvatar = LoginManager.Instance.GetCurrentUser();
 
-            uiNewsBadge.Badge = await CheckForNews() ? "!" : "";
-            InitNewsTimer();
 
         }
         private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -133,71 +131,6 @@ namespace gamevault.Windows
         }
 
 
-        private void Premium_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            MainWindowViewModel.Instance.SetActiveControl(MainControl.Settings);
-            MainWindowViewModel.Instance.Settings.SetTabIndex(4);
-        }
-
-        private async Task<bool> CheckForNews()
-        {
-            try
-            {
-                if (Preferences.Get(AppConfigKey.UnreadNews, LoginManager.Instance.GetUserProfile().UserConfigFile) == "1")
-                {
-                    return true;
-                }
-                string gameVaultNews = await WebHelper.GetAsync("https://gamevau.lt/news.md");
-                string serverNews = await WebHelper.GetAsync($"{SettingsViewModel.Instance.ServerUrl}/api/config/news");
-
-                string hash = await CacheHelper.CreateHashAsync(gameVaultNews + serverNews);
-                if (Preferences.Get(AppConfigKey.NewsHash, LoginManager.Instance.GetUserProfile().UserConfigFile) != hash)
-                {
-                    Preferences.Set(AppConfigKey.UnreadNews, "1", LoginManager.Instance.GetUserProfile().UserConfigFile);
-                    Preferences.Set(AppConfigKey.NewsHash, hash, LoginManager.Instance.GetUserProfile().UserConfigFile);
-                    return true;
-                }
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-        private void InitNewsTimer()
-        {
-            DispatcherTimer newsTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromHours(1)
-            };
-            newsTimer.Tick += async (s, e) => { uiNewsBadge.Badge = await CheckForNews() ? "!" : ""; };
-            newsTimer.Start();
-        }
-
-        private void News_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            MainWindowViewModel.Instance.OpenPopup(new NewsPopup());
-            try
-            {
-                uiNewsBadge.Badge = "";
-                Preferences.Set(AppConfigKey.UnreadNews, "0", LoginManager.Instance.GetUserProfile().UserConfigFile);
-            }
-            catch
-            { }
-        }
-        private void Shortlink_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            try
-            {
-                string? url = (string)((FrameworkElement)sender).Tag;
-                if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
-                {
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                }
-                e.Handled = true;
-            }
-            catch { }
-        }
 
         private void CopyMessage_Click(object sender, RoutedEventArgs e)
         {
