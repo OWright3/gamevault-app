@@ -1,4 +1,4 @@
-﻿using gamevault.Models;
+using gamevault.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,6 +19,8 @@ namespace gamevault.ViewModels
         private KeyValuePair<string, string> m_SelectedGameFilterSortBy { get; set; }
         private string filterCounter { get; set; } = string.Empty;
         private bool canLoadServerGames { get; set; } = true;
+        private double serverGameCardWidth = 178;
+        private double serverGameCardHeight = 267;
         #endregion
         public ObservableCollection<Game> GameCards
         {
@@ -79,6 +81,18 @@ namespace gamevault.ViewModels
         {
             get { return canLoadServerGames; }
             set { canLoadServerGames = value; OnPropertyChanged(); }
+        }
+
+        public double ServerGameCardWidth
+        {
+            get { return serverGameCardWidth; }
+            set { serverGameCardWidth = value; OnPropertyChanged(); }
+        }
+
+        public double ServerGameCardHeight
+        {
+            get { return serverGameCardHeight; }
+            set { serverGameCardHeight = value; OnPropertyChanged(); }
         }
     }
 }
