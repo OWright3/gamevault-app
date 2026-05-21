@@ -111,7 +111,11 @@ namespace gamevault.Helper
         private async Task ProcessContentStream(long currentDownloadSize, Stream contentStream)
         {
             long currentBytesRead = 0;
-            byte[] buffer = new byte[8192];
+            bybyte[] buffer = new byte[65536];
+8192
+ 8192
+  2000
+   TotalMilliseconds
             bool isMoreToRead = true;
             LastTime = DateTime.Now;
             string fullFilePath = $"{DestinationFolderPath}\\{FileName}";
@@ -157,7 +161,7 @@ namespace gamevault.Helper
                         await fileStream.WriteAsync(buffer, 0, bytesRead);
 
                         currentBytesRead += bytesRead;
-                        if ((DateTime.Now - LastTime).TotalMilliseconds > 2000)
+                        if ((DateTime.Now - LastTime).TotalMilliseconds > 500)
                         {
                             //Save checkpoints all two seconds in case the app is closed by the user, or hardly crashed
                             Preferences.Set(AppConfigKey.DownloadProgress, $"{fileStream.Position};{(PreResumeSize == -1 ? currentDownloadSize : PreResumeSize)}", $"{DestinationFolderPath}\\gamevault-metadata");
