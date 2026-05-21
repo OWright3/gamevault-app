@@ -34,6 +34,259 @@ namespace gamevault.UserControls
         private double downloadRetryTimerTickValue = 10;
         private string mountedDrive = "";
 
+        private async Task<int> ExtractArchiveWithPasswordHandling(
+            string archivePath,
+            string outputDir,
+            bool cleanOutputDir = false)
+        {
+            bool isEncrypted = await sevenZipHelper.IsArchiveEncrypted(archivePath);
+
+            if (!isEncrypted)
+            {
+                return await sevenZipHelper.ExtractArchive(archivePath, outputDir, string.Empty, cleanOutputDir);
+            }
+
+            string extractionPassword = Preferences.Get(
+                AppConfigKey.ExtractionPassword,
+                LoginManager.Instance.GetUserProfile().UserConfigFile,
+                true);
+
+            if (string.IsNullOrEmpty(extractionPassword))
+            {
+                extractionPassword = await ((MetroWindow)App.Current.MainWindow)
+                    .ShowInputAsync(
+                        "Extraction Message",
+                        "Your archive requires a password to extract");
+
+                if (string.IsNullOrEmpty(extractionPassword))
+                {
+                    return 69;
+                }
+            }
+
+            int result = await sevenZipHelper.ExtractArchive(
+                archivePath,
+                outputDir,
+                extractionPassword,
+                cleanOutputDir);
+
+            if (result == 69)
+            {
+                extractionPassword = await ((MetroWindow)App.Current.MainWindow)
+                    .ShowInputAsync(
+                        "Extraction Message",
+                        "Wrong password. Enter the archive password again.");
+
+                if (string.IsNullOrEmpty(extractionPassword))
+                {
+                    return 69;
+                }
+
+                result = await sevenZipHelper.ExtractArchive(
+                    archivePath,
+                    outputDir,
+                    extractionPassword,
+                    cleanOutputDir);
+            }
+
+            return result;
+        }
+
+        private async Task<bool> ExtractPortableArchiveDirectToInstall(FileInfo archiveFile)
+        {
+            if (!IsPortableGame())
+            {
+                return false;
+            }
+
+            string archivePath = archiveFile.FullName;
+            string finalFilesDir = Path.Combine(ViewModel.InstallPath, "Files");
+            string stagingDir = Path.Combine(ViewModel.InstallPath, "Files.__extracting");
+
+            uiBtnExtract.IsEnabled = false;
+            uiBtnInstall.IsEnabled = false;
+            ViewModel.State = "Installing...";
+            ViewModel.ExtractionUIVisibility = Visibility.Visible;
+
+            try
+            {
+                if (!Directory.Exists(ViewModel.InstallPath))
+                {
+                    Directory.CreateDirectory(ViewModel.InstallPath);
+                }
+
+                if (Directory.Exists(stagingDir))
+                {
+                    Directory.Delete(stagingDir, true);
+                }
+
+                if (Directory.Exists(finalFilesDir))
+                {
+                    MessageDialogResult overwriteResult =
+                        await ((MetroWindow)App.Current.MainWindow).ShowMessageAsync(
+                            $"The game {ViewModel.Game.Title} already has installed files.",
+                            "Overwrite existing installation?",
+                            MessageDialogStyle.AffirmativeAndNegative,
+                            new MetroDialogSettings()
+                            {
+                                AffirmativeButtonText = "Continue",
+                                NegativeButtonText = "Cancel",
+                                AnimateHide = false
+                            });
+
+                    if (overwriteResult == MessageDialogResult.Negative)
+                    {
+                        ViewModel.State = "Downloaded";
+                        ViewModel.ExtractionUIVisibility = Visibility.Hidden;
+                        uiBtnExtract.IsEnabled = true;
+                        return false;
+                    }
+
+                    Directory.Delete(finalFilesDir, true);
+                }
+
+                int result = await ExtractArchiveWithPasswordHandling(archivePath, stagingDir, cleanOutputDir: true);
+
+                if (result != 0)
+                {
+                    if (Directory.Exists(stagingDir))
+                    {
+                        Directory.Delete(stagingDir, true);
+                    }
+
+                    if (extractionCancelled)
+                    {
+                        extractionCancelled = false;
+                        ViewModel.State = "Extraction cancelled";
+                    }
+                    else if (result == 69)
+                    {
+                        ViewModel.State = "Error: Wrong password";
+                    }
+                    else
+                    {
+                        ViewModel.State = "Something went wrong during extraction";
+                    }
+
+                    ViewModel.ExtractionUIVisibility = Visibility.Hidden;
+                    uiBtnExtract.IsEnabled = true;
+                    return false;
+                }
+
+                Directory.Move(stagingDir, finalFilesDir);
+
+                MainWindowViewModel.Instance.Library
+                    .GetGameInstalls()
+                    .AddSystemFileWatcher(ViewModel.InstallPath);
+
+                ViewModel.InstallationStepperProgress = 2;
+                ViewModel.State = "Installed";
+                ViewModel.ExtractionUIVisibility = Visibility.Hidden;
+                uiBtnInstall.IsEnabled = false;
+                uiBtnExtract.IsEnabled = true;
+                uiBtnExtract.Text = "Reinstall";
+
+                await SaveInstallMetadataAndShortcut();
+
+                MainWindowViewModel.Instance.AppBarText =
+                    $"Successfully installed '{ViewModel.Game.Title}'";
+
+                if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
+                {
+                    ToastMessageHelper.CreateToastMessage("Installation Complete", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game?.ID}.{ViewModel.Game?.Metadata?.Cover?.ID}");
+                }
+
+                if (SettingsViewModel.Instance.AutoDeletePortableGameFiles)
+                {
+                    await DeleteFile(false);
+                }
+
+                return true;
+            }
+            catch
+            {
+                try
+                {
+                    if (Directory.Exists(stagingDir))
+                    {
+                        Directory.Delete(stagingDir, true);
+                    }
+                }
+                catch { }
+
+                ViewModel.State = "Something went wrong during direct extraction";
+                ViewModel.ExtractionUIVisibility = Visibility.Hidden;
+                MainWindowViewModel.Instance.AppBarText =
+                    "Something went wrong during direct extraction";
+
+                uiBtnExtract.IsEnabled = true;
+                return false;
+            }
+        }
+
+        private async Task SaveInstallMetadataAndShortcut()
+        {
+            try
+            {
+                Preferences.Set(AppConfigKey.InstalledGameVersion, ViewModel?.Game?.Version, $"{ViewModel.InstallPath}\\gamevault-exec");
+            }
+            catch { }
+
+            if (isGameTypeForced && Directory.Exists(ViewModel.InstallPath) && ViewModel?.Game?.Type != null)
+            {
+                try
+                {
+                    Preferences.Set(AppConfigKey.ForcedInstallationType, ViewModel?.Game?.Type, $"{ViewModel.InstallPath}\\gamevault-exec");
+                }
+                catch { }
+            }
+
+            if (!string.IsNullOrWhiteSpace(ViewModel.Game?.Metadata?.LaunchParameters) && Directory.Exists(ViewModel.InstallPath))
+            {
+                try
+                {
+                    Preferences.Set(AppConfigKey.LaunchParameter, ViewModel.Game?.Metadata?.LaunchParameters, $"{ViewModel.InstallPath}\\gamevault-exec");
+                }
+                catch { }
+            }
+
+            if (!string.IsNullOrWhiteSpace(ViewModel.Game?.Metadata?.LaunchExecutable) && Directory.Exists(ViewModel.InstallPath))
+            {
+                try
+                {
+                    string extension = Path.GetExtension(ViewModel.Game?.Metadata?.LaunchExecutable);
+                    var files = Directory.GetFiles(ViewModel.InstallPath, $"*{extension}", SearchOption.AllDirectories);
+                    var targetFile = files.FirstOrDefault(file => file.Contains(ViewModel.Game?.Metadata?.LaunchExecutable.Replace("/", "\\"), StringComparison.OrdinalIgnoreCase));
+                    if (targetFile != null)
+                    {
+                        Preferences.Set(AppConfigKey.Executable, targetFile, $"{ViewModel.InstallPath}\\gamevault-exec");
+                    }
+                }
+                catch { }
+            }
+
+            if (ViewModel.CreateShortcut == true)
+            {
+                await Task.Delay(1000);
+                var game = InstallViewModel.Instance.InstalledGames.Where(g => g.Key.ID == ViewModel.Game.ID).FirstOrDefault();
+                if (game.Key == null || !Directory.Exists(game.Value))
+                {
+                    return;
+                }
+
+                if (!File.Exists(Preferences.Get(AppConfigKey.Executable, $"{game.Value}\\gamevault-exec")))
+                {
+                    if (!GameSettingsUserControl.TryPrepareLaunchExecutable(game.Value))
+                    {
+                        MainWindowViewModel.Instance.AppBarText = "Can not create shortcut. No valid Executable found";
+                        return;
+                    }
+                }
+
+                await DesktopHelper.CreateShortcut(game.Key, Preferences.Get(AppConfigKey.Executable, $"{game.Value}\\gamevault-exec"), false);
+            }
+        }
+        
         public GameDownloadUserControl(Game game, string rootDirectory, bool download)
         {
             InitializeComponent();
@@ -82,6 +335,13 @@ namespace gamevault.UserControls
         {
             ViewModel.Game = game;
         }
+
+        private bool IsPortableGame()
+        {
+            return ViewModel.Game.Type == GameType.WINDOWS_PORTABLE ||
+                   ViewModel.Game.Type == GameType.LINUX_PORTABLE;
+        }
+        
         private void UpdateDataSizeUI()
         {
             Task.Run(() =>
@@ -332,17 +592,16 @@ namespace gamevault.UserControls
             if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
                 ToastMessageHelper.CreateToastMessage("Download Complete", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game.ID}.{ViewModel.Game.Metadata?.Cover?.ID}");
 
-       if (SettingsViewModel.Instance.AutoExtract)
-        {
-            App.Current.Dispatcher.BeginInvoke((Action)(async () =>
+            if (SettingsViewModel.Instance.AutoExtract)
             {
-                uiBtnExtract.IsEnabled = false;
-                await Task.Delay(3000);
-                await Extract();
-                uiBtnExtract.IsEnabled = true;
-            }));
-        };
-        }
+                App.Current.Dispatcher.BeginInvoke((Action)(async () =>
+                {
+                    uiBtnExtract.IsEnabled = false;
+                    await Task.Delay(3000);
+                    await Extract();
+                    uiBtnExtract.IsEnabled = true;
+                }));
+            }
         }
 
         private void CancelDownload_Click(object sender, RoutedEventArgs e)
@@ -482,6 +741,7 @@ namespace gamevault.UserControls
                 MainWindowViewModel.Instance.AppBarText = "Please report this issue on our Discord server or create a GitHub issue.";
                 return;
             }
+
             DirectoryInfo dirInf = new DirectoryInfo(m_DownloadPath);
             FileInfo[] files = dirInf.GetFiles().Where(f => ViewModel.SupportedArchives.Contains(f.Extension.ToLower())).ToArray();
             if (files.Length <= 0)
@@ -489,13 +749,17 @@ namespace gamevault.UserControls
                 ViewModel.State = "No archive found";
                 return;
             }
+
             uiBtnInstall.IsEnabled = false;
 
-            //Mount ISO if possible
-            if (SettingsViewModel.Instance.MountIso && Path.GetExtension(Path.Combine(m_DownloadPath, files[0].Name)).Equals(".iso", StringComparison.OrdinalIgnoreCase))
+            string archivePath = Path.Combine(m_DownloadPath, files[0].Name);
+            bool isIso = Path.GetExtension(archivePath).Equals(".iso", StringComparison.OrdinalIgnoreCase);
+
+            // Mount ISO if possible.
+            if (SettingsViewModel.Instance.MountIso && isIso)
             {
                 uiBtnExtract.IsEnabled = false;
-                mountedDrive = await MountISO(Path.Combine(m_DownloadPath, files[0].Name));
+                mountedDrive = await MountISO(archivePath);
                 if (Directory.Exists(mountedDrive))
                 {
                     ViewModel.State = $"ISO mounted at {mountedDrive}";
@@ -504,42 +768,31 @@ namespace gamevault.UserControls
                     uiBtnInstall.IsEnabled = true;
                     return;
                 }
+
                 ViewModel.State = "Failed to Mount ISO";
                 uiBtnExtract.IsEnabled = true;
                 return;
             }
-            //
 
             ViewModel.ExtractionUIVisibility = System.Windows.Visibility.Hidden;
             ViewModel.State = "Extracting...";
             ViewModel.ExtractionUIVisibility = System.Windows.Visibility.Visible;
-            downloadSpeedCalc = new DownloadSpeedCalculator();//Reuse download speed calculator as extraction speed calculator and set new instance to reset it
+            downloadSpeedCalc = new DownloadSpeedCalculator(); // Reuse download speed calculator as extraction speed calculator and set new instance to reset it.
+            sevenZipHelper.Process -= ExtractionProgress;
             sevenZipHelper.Process += ExtractionProgress;
             startTime = DateTime.Now;
-            int result;
-            bool isEncrypted = await sevenZipHelper.IsArchiveEncrypted($"{m_DownloadPath}\\{files[0].Name}");
-            if (isEncrypted)
+
+            // Portable 7z/zip/rar/etc. games can be extracted directly into the installation directory.
+            // This skips the old Downloads\\Extract staging folder and avoids holding a third full copy on disk.
+            if (IsPortableGame() && !isIso)
             {
-                string extractionPassword = Preferences.Get(AppConfigKey.ExtractionPassword, LoginManager.Instance.GetUserProfile().UserConfigFile, true);
-                if (string.IsNullOrEmpty(extractionPassword))
-                {
-                    extractionPassword = await ((MetroWindow)App.Current.MainWindow).ShowInputAsync("Exctraction Message", "Your Archive reqires a Password to extract");
-                    result = await sevenZipHelper.ExtractArchive($"{m_DownloadPath}\\{files[0].Name}", $"{m_DownloadPath}\\Extract", extractionPassword);
-                }
-                else
-                {
-                    result = await sevenZipHelper.ExtractArchive($"{m_DownloadPath}\\{files[0].Name}", $"{m_DownloadPath}\\Extract", extractionPassword);
-                    if (result == 69)//Error code for wrong password
-                    {
-                        extractionPassword = await ((MetroWindow)App.Current.MainWindow).ShowInputAsync("Exctraction Message", "Your Archive reqires a Password to extract");
-                        result = await sevenZipHelper.ExtractArchive($"{m_DownloadPath}\\{files[0].Name}", $"{m_DownloadPath}\\Extract", extractionPassword);
-                    }
-                }
+                await ExtractPortableArchiveDirectToInstall(files[0]);
+                UpdateDataSizeUI();
+                return;
             }
-            else
-            {
-                result = await sevenZipHelper.ExtractArchive($"{m_DownloadPath}\\{files[0].Name}", $"{m_DownloadPath}\\Extract");
-            }
+
+            int result = await ExtractArchiveWithPasswordHandling(archivePath, $"{m_DownloadPath}\\Extract");
+
             if (result == 0)
             {
                 if (!File.Exists($"{m_DownloadPath}\\Extract\\gamevault-metadata"))
@@ -556,9 +809,9 @@ namespace gamevault.UserControls
                 if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
                     ToastMessageHelper.CreateToastMessage("Extraction Complete", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game?.ID}.{ViewModel.Game?.Metadata?.Cover?.ID}");
 
-                if (SettingsViewModel.Instance.AutoInstallPortable && (ViewModel.Game?.Type == GameType.WINDOWS_PORTABLE || ViewModel.Game?.Type == GameType.LINUX_PORTABLE))
+                if (SettingsViewModel.Instance.AutoInstallPortable && IsPortableGame())
                 {
-                    await Task.Delay(1000);//Just to be sure the extraction stream is closed and the files are ready to copy
+                    await Task.Delay(1000); // Just to be sure the extraction stream is closed and the files are ready to copy.
                     await Install();
                 }
                 else
