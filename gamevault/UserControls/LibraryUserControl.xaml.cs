@@ -302,41 +302,51 @@ namespace gamevault.UserControls
         }
         private async void Library_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if ((ScrollViewer)sender != uiMainScrollBar)
+            if (sender is not ScrollViewer scrollViewer)
+                return;
+
+            double scrollPercentage = scrollViewer.ScrollableHeight <= 0
+                ? 0
+                : e.VerticalOffset / scrollViewer.ScrollableHeight * 100;
+
+            ViewModel.ScrollToTopVisibility = scrollPercentage > 10 ? Visibility.Visible : Visibility.Collapsed;
+
+            if (scrollBlocked == false && ViewModel.NextPage != null && scrollPercentage > 90)
             {
-                double scrollPercentage = e.VerticalOffset / ((ScrollViewer)sender).ScrollableHeight * 100;
-
-                ViewModel.ScrollToTopVisibility = scrollPercentage > 10 ? Visibility.Visible : Visibility.Collapsed;
-
-                if (scrollBlocked == false && ViewModel.NextPage != null && scrollPercentage > 90)
+                scrollBlocked = true;
+                PaginatedData<Game>? gameResult = await GetGamesData(ViewModel.NextPage);
+                ViewModel.NextPage = gameResult?.Links.Next;
+                if (gameResult == null || gameResult.Data == null)
                 {
-                    scrollBlocked = true;
-                    PaginatedData<Game>? gameResult = await GetGamesData(ViewModel.NextPage);
-                    ViewModel.NextPage = gameResult?.Links.Next;
-                    if (gameResult == null || gameResult.Data == null)
-                    {
-                        MainWindowViewModel.Instance.AppBarText = "Failed to load next Page";
-                        return;
-                    }
-                    await ProcessGamesData(gameResult);
+                    MainWindowViewModel.Instance.AppBarText = "Failed to load next Page";
                     scrollBlocked = false;
+                    return;
                 }
+                await ProcessGamesData(gameResult);
+                scrollBlocked = false;
             }
         }
         private void Library_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            if ((e.Delta > 0 && ((ScrollViewer)sender).VerticalOffset == 0) || (e.Delta < 0 && ViewModel.NextPage == null && ((ScrollViewer)sender).VerticalOffset == ((ScrollViewer)sender).ScrollableHeight))
+            // The server-games list now owns its own scroll area. Do not forward
+            // wheel events to the removed page-level ScrollViewer.
+        }
+
+        private ScrollViewer? GetServerGamesScrollViewer()
+        {
+            try
             {
-                var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta);
-                eventArg.RoutedEvent = UIElement.MouseWheelEvent;
-                eventArg.Source = sender;
-                uiMainScrollBar.RaiseEvent(eventArg);
+                return (ScrollViewer?)uiServerGamesItemsControl.Template.FindName("PART_ItemsScroll", uiServerGamesItemsControl);
+            }
+            catch
+            {
+                return null;
             }
         }
 
         private void ScrollToTop_Click(object sender, MouseButtonEventArgs e)
         {
-            ((ScrollViewer)((Grid)((FrameworkElement)sender).Parent).Children[0]).ScrollToTop();
+            GetServerGamesScrollViewer()?.ScrollToTop();
         }
 
         private async void OrderBy_Changed(object sender, RoutedEventArgs e)
@@ -536,26 +546,5 @@ namespace gamevault.UserControls
                 ViewModel.GameCards[index] = gameToRefreshParam;
             }
         }
-        #region PREVENT WEIRD AUTO SCROLL
-        //The main scrollbar starts scrolling if i click in the server games section. Could not find a better solution for this Problem. Thats why this bad workaround.
-        bool isProgrammaticScroll = false;
-        private void uiMainScrollBar_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
-        {
-            isProgrammaticScroll = true;
-        }
-
-        private void uiMainScrollBar_ScrollChanged(object sender, ScrollChangedEventArgs e)
-        {
-            if (isProgrammaticScroll)
-            {
-                e.Handled = true;
-                isProgrammaticScroll = false;
-                ((ScrollViewer)sender).ScrollToVerticalOffset(e.VerticalOffset - e.VerticalChange);
-            }
-        }
-
-
-        #endregion
-
     }
 }
