@@ -67,14 +67,13 @@
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
-                <Border Background="{DynamicResource MahApps.Brushes.ThemeBackground2}"
-                        Opacity="0.8"
-                        CornerRadius="10"
-                        Margin="10"
-                        MaxWidth="800"
+                <Border Background="#A0000000"
+                        CornerRadius="12"
+                        Margin="20"
+                        MaxWidth="1100"
                         HorizontalAlignment="Center"/>
                 <StackPanel x:Name="LoadingPlaceholder"
-                            MaxWidth="800"
+                            MaxWidth="1100"
                             Margin="20"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Top">
@@ -104,21 +103,20 @@
                 </StackPanel>
             </Grid>
 
-            <Border Background="{DynamicResource MahApps.Brushes.ThemeBackground2}"
-                    Opacity="0.8"
-                    CornerRadius="10"
-                    Margin="10"
-                    MaxWidth="800"
+            <Border Background="#A0000000"
+                    CornerRadius="12"
+                    Margin="20"
+                    MaxWidth="1100"
                     HorizontalAlignment="Center"/>
 
             <DockPanel LastChildFill="True"
                        Background="Transparent"
-                       Margin="10"
-                       MaxWidth="800"
-                       HorizontalAlignment="Center">
-                <Grid DockPanel.Dock="Top" Height="155" Margin="10">
+                       Margin="24"
+                       MaxWidth="1100"
+                       HorizontalAlignment="Stretch">
+                <Grid DockPanel.Dock="Top" Height="175" Margin="10">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="160"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
@@ -140,8 +138,8 @@
 
                     <local:CacheImage Grid.Column="0"
                                       Grid.RowSpan="2"
-                                      Height="130"
-                                      Width="130"
+                                      Height="150"
+                                      Width="150"
                                       Stretch="Fill"
                                       ImageCacheType="UserAvatar"
                                       CornerRadius="10"
@@ -149,12 +147,12 @@
 
                     <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Top">
                         <TextBlock Text="{Binding Path=CurrentShownUser.FirstName}"
-                                   FontSize="24"
+                                   FontSize="28"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis"/>
                         <Border Background="{DynamicResource MahApps.Brushes.Accent}"
-                                Width="110"
-                                Height="30"
+                                Width="120"
+                                Height="32"
                                 Padding="5"
                                 CornerRadius="5"
                                 Margin="0,8,0,0"
@@ -201,7 +199,7 @@
                     <ComboBox x:Name="uiSortBy"
                               Grid.Column="2"
                               Grid.Row="1"
-                              Width="150"
+                              Width="170"
                               ItemsSource="{Binding SortBy}"
                               SelectionChanged="SortBy_SelectionChanged"/>
                 </Grid>
@@ -219,15 +217,15 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel LastChildFill="True" Height="90" Margin="0,0,0,8">
-                                        <Button Style="{StaticResource ButtonWrapper}" Width="75" Height="75" Cursor="Hand" Click="GameImage_Click">
+                                    <DockPanel LastChildFill="True" Height="108" Margin="0,0,0,10">
+                                        <Button Style="{StaticResource ButtonWrapper}" Width="92" Height="92" Cursor="Hand" Click="GameImage_Click">
                                             <local:CacheImage ImageCacheType="GameCover" Data="{Binding}" CornerRadius="4"/>
                                         </Button>
                                         <Grid Margin="10,0,0,0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="40"/>
+                                                <ColumnDefinition Width="48"/>
                                             </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="*"/>
@@ -235,7 +233,7 @@
                                             </Grid.RowDefinitions>
 
                                             <TextBlock Grid.Column="0"
-                                                       FontSize="16"
+                                                       FontSize="18"
                                                        FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Top">
@@ -255,19 +253,19 @@
                                             </TextBlock>
 
                                             <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                                                <TextBlock Text="State: " FontSize="13"/>
+                                                <TextBlock Text="State: " FontSize="14"/>
                                                 <TextBlock Text="{Binding Path=State,Converter={StaticResource gameStateDescConv}}"
                                                            Foreground="{Binding Path=State,Converter={StaticResource gameStateColorConv}}"
-                                                           FontSize="13" />
+                                                           FontSize="14" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Grid.RowSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="10,0,10,0">
-                                                <TextBlock Text="{Binding Path=MinutesPlayed,StringFormat='{}Time played: {0}',Converter={StaticResource gameTimeConv}}" FontSize="13">
+                                                <TextBlock Text="{Binding Path=MinutesPlayed,StringFormat='{}Time played: {0}',Converter={StaticResource gameTimeConv}}" FontSize="14">
                                                     <TextBlock.ToolTip>
                                                         <TextBlock Text="{Binding Path=MinutesPlayed,StringFormat='{}{0} min'}"/>
                                                     </TextBlock.ToolTip>
                                                 </TextBlock>
-                                                <TextBlock FontSize="13" DataContext="{Binding Path=LastPlayedAt,Converter={StaticResource UtcTimeConv}}" Text="{Binding StringFormat='{}Last played: {0:dd.MM.yyyy}'}">
+                                                <TextBlock FontSize="14" DataContext="{Binding Path=LastPlayedAt,Converter={StaticResource UtcTimeConv}}" Text="{Binding StringFormat='{}Last played: {0:dd.MM.yyyy}'}">
                                                     <TextBlock.ToolTip>
                                                         <TextBlock Text="{Binding StringFormat='{}{0:HH:mm:ss&#x0a;dd.MM.yyyy}'}"/>
                                                     </TextBlock.ToolTip>
