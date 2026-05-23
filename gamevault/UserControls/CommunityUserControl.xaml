@@ -103,7 +103,7 @@
                 </StackPanel>
             </Grid>
 
-            <Border Background="#A0000000"
+            <Border Background="#B8000000"
                     CornerRadius="12"
                     Margin="20"
                     MaxWidth="1100"
@@ -217,68 +217,92 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel LastChildFill="True" Height="108" Margin="0,0,0,10">
-                                        <Button Style="{StaticResource ButtonWrapper}" Width="92" Height="92" Cursor="Hand" Click="GameImage_Click">
-                                            <local:CacheImage ImageCacheType="GameCover" Data="{Binding}" CornerRadius="4"/>
-                                        </Button>
-                                        <Grid Margin="10,0,0,0">
+                                    <Border CornerRadius="10"
+                                            Background="#CC000000"
+                                            Padding="10"
+                                            Margin="0,0,0,10"
+                                            MinHeight="96">
+                                        <Grid VerticalAlignment="Center">
                                             <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="86"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="48"/>
+                                                <ColumnDefinition Width="42"/>
                                             </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="*"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
 
-                                            <TextBlock Grid.Column="0"
-                                                       FontSize="18"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Top">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="{x:Type TextBlock}">
-                                                        <Setter Property="TextBlock.Text" Value="{Binding Path=Game.Metadata.Title}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=Game.Metadata.Title}" Value="{x:Null}">
-                                                                <Setter Property="Text" Value="{Binding Path=Game.Title}" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Path=Game.DeletedAt,Converter={StaticResource inverseNullConv}}" Value="False">
-                                                                <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                            <Button Grid.Column="0"
+                                                    Style="{StaticResource ButtonWrapper}"
+                                                    Width="76"
+                                                    Height="76"
+                                                    Cursor="Hand"
+                                                    VerticalAlignment="Center"
+                                                    Click="GameImage_Click">
+                                                <local:CacheImage ImageCacheType="GameCover"
+                                                                  Data="{Binding}"
+                                                                  Stretch="Fill"
+                                                                  CornerRadius="6"/>
+                                            </Button>
 
-                                            <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                                                <TextBlock Text="State: " FontSize="14"/>
-                                                <TextBlock Text="{Binding Path=State,Converter={StaticResource gameStateDescConv}}"
-                                                           Foreground="{Binding Path=State,Converter={StaticResource gameStateColorConv}}"
-                                                           FontSize="14" />
+                                            <StackPanel Grid.Column="1"
+                                                        VerticalAlignment="Center"
+                                                        Margin="4,0,20,0">
+                                                <TextBlock FontSize="18"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="White">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="{x:Type TextBlock}">
+                                                            <Setter Property="TextBlock.Text" Value="{Binding Path=Game.Metadata.Title}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Path=Game.Metadata.Title}" Value="{x:Null}">
+                                                                    <Setter Property="Text" Value="{Binding Path=Game.Title}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Path=Game.DeletedAt,Converter={StaticResource inverseNullConv}}" Value="False">
+                                                                    <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="State: " FontSize="14" Foreground="White" Opacity="0.9"/>
+                                                    <TextBlock Text="{Binding Path=State,Converter={StaticResource gameStateDescConv}}"
+                                                               Foreground="{Binding Path=State,Converter={StaticResource gameStateColorConv}}"
+                                                               FontSize="14" />
+                                                </StackPanel>
                                             </StackPanel>
 
-                                            <StackPanel Grid.Column="1" Grid.RowSpan="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="10,0,10,0">
-                                                <TextBlock Text="{Binding Path=MinutesPlayed,StringFormat='{}Time played: {0}',Converter={StaticResource gameTimeConv}}" FontSize="14">
+                                            <StackPanel Grid.Column="2"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right"
+                                                        MinWidth="190"
+                                                        Margin="10,0,12,0">
+                                                <TextBlock Text="{Binding Path=MinutesPlayed,StringFormat='{}Time played: {0}',Converter={StaticResource gameTimeConv}}"
+                                                           FontSize="14"
+                                                           Foreground="White"
+                                                           TextAlignment="Right">
                                                     <TextBlock.ToolTip>
                                                         <TextBlock Text="{Binding Path=MinutesPlayed,StringFormat='{}{0} min'}"/>
                                                     </TextBlock.ToolTip>
                                                 </TextBlock>
-                                                <TextBlock FontSize="14" DataContext="{Binding Path=LastPlayedAt,Converter={StaticResource UtcTimeConv}}" Text="{Binding StringFormat='{}Last played: {0:dd.MM.yyyy}'}">
+                                                <TextBlock FontSize="14"
+                                                           Foreground="White"
+                                                           TextAlignment="Right"
+                                                           DataContext="{Binding Path=LastPlayedAt,Converter={StaticResource UtcTimeConv}}"
+                                                           Text="{Binding StringFormat='{}Last played: {0:dd.MM.yyyy}'}">
                                                     <TextBlock.ToolTip>
                                                         <TextBlock Text="{Binding StringFormat='{}{0:HH:mm:ss&#x0a;dd.MM.yyyy}'}"/>
                                                     </TextBlock.ToolTip>
                                                 </TextBlock>
                                             </StackPanel>
 
-                                            <Button Grid.Column="2"
-                                                    Grid.RowSpan="2"
+                                            <Button Grid.Column="3"
                                                     Style="{StaticResource ButtonWrapper}"
                                                     Visibility="{Binding SelectedIndex,ElementName=uiSelectUser,Converter={StaticResource roleToVisConv}}"
                                                     Cursor="Hand"
                                                     VerticalAlignment="Center"
-                                                    HorizontalAlignment="Right"
+                                                    HorizontalAlignment="Center"
                                                     Height="30"
                                                     Width="30"
                                                     Click="DeleteProgress_Click">
@@ -294,7 +318,7 @@
                                                 </Grid>
                                             </Button>
                                         </Grid>
-                                    </DockPanel>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

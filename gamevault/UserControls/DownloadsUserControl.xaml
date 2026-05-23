@@ -1,4 +1,4 @@
-<UserControl x:Class="gamevault.UserControls.DownloadsUserControl"
+﻿<UserControl x:Class="gamevault.UserControls.DownloadsUserControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -52,23 +52,19 @@
                 </TextBlock.Style>
             </TextBlock>
 
-            <ScrollViewer Margin="10,10,45,10"
+            <ScrollViewer x:Name="uiDownloadsScrollViewer"
+                          Margin="10,10,45,10"
                           VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <Grid MaxWidth="1200" HorizontalAlignment="Stretch">
-                    <ItemsControl ItemsSource="{Binding DownloadedGames}"
-                                  HorizontalContentAlignment="Stretch">
-                        <ItemsControl.ItemContainerStyle>
-                            <Style TargetType="ContentPresenter">
-                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Vertical"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+                <Grid x:Name="uiDownloadsContentHost"
+                      Width="{Binding ActualWidth, ElementName=uiDownloadsScrollViewer}"
+                      MaxWidth="540"
+                      HorizontalAlignment="Center"
+                      SizeChanged="DownloadsContentHost_SizeChanged">
+                    <StackPanel x:Name="uiDownloadsPanel"
+                                Orientation="Vertical"
+                                HorizontalAlignment="Stretch"/>
                 </Grid>
             </ScrollViewer>
         </Grid>

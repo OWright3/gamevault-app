@@ -237,6 +237,46 @@ namespace gamevault.UserControls
         {
             Back();
         }
+        private void GameViewScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            try
+            {
+                FrameworkElement? primaryColumn = FindName("uiGameViewPrimaryColumn") as FrameworkElement;
+                FrameworkElement? secondaryColumn = FindName("uiGameViewSecondaryColumn") as FrameworkElement;
+
+                if (primaryColumn == null || secondaryColumn == null)
+                    return;
+
+                double availableWidth = Math.Max(300, e.NewSize.Width - 120);
+                bool useTwoColumns = availableWidth >= 900;
+
+                if (useTwoColumns)
+                {
+                    primaryColumn.Width = 546;
+                    secondaryColumn.Width = 300;
+                    secondaryColumn.Margin = new Thickness(0, 40, 0, 10);
+
+                    if (uiMediaSlider != null)
+                    {
+                        uiMediaSlider.Width = 546;
+                    }
+                }
+                else
+                {
+                    double columnWidth = Math.Min(546, Math.Max(300, availableWidth - 20));
+                    primaryColumn.Width = columnWidth;
+                    secondaryColumn.Width = columnWidth;
+                    secondaryColumn.Margin = new Thickness(0, 0, 0, 10);
+
+                    if (uiMediaSlider != null)
+                    {
+                        uiMediaSlider.Width = columnWidth;
+                    }
+                }
+            }
+            catch { }
+        }
+
         private void KeyBindingEscape_OnExecuted(object sender, object e)
         {
             Back();
@@ -260,14 +300,21 @@ namespace gamevault.UserControls
         }
         private async void GameDownload_Click(object sender, RoutedEventArgs e)
         {
-            if (ViewModel.Game == null)
-                return;
-
-            if (IsGameDownloaded(ViewModel.Game))
+            try
             {
-                uiMediaSlider.UnloadMediaSlider();
+                if (ViewModel.Game == null)
+                    return;
+
+                if (IsGameDownloaded(ViewModel.Game))
+                {
+                    uiMediaSlider?.UnloadMediaSlider();
+                }
+                await MainWindowViewModel.Instance.Downloads.TryStartDownload(ViewModel.Game);
             }
-            await MainWindowViewModel.Instance.Downloads.TryStartDownload(ViewModel.Game);
+            catch (Exception ex)
+            {
+                MainWindowViewModel.Instance.AppBarText = $"Could not start download: {ex.Message}";
+            }
         }
         private void Website_Navigate(object sender, RequestNavigateEventArgs e)
         {

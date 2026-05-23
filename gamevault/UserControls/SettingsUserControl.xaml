@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="gamevault.UserControls.SettingsUserControl"
+<UserControl x:Class="gamevault.UserControls.SettingsUserControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -8,8 +8,7 @@
              xmlns:local="clr-namespace:gamevault.UserControls"
              xmlns:settingsComponents="clr-namespace:gamevault.UserControls.SettingsComponents"
              xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-             mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800" Loaded="UserControl_Loaded">
+             mc:Ignorable="d" Loaded="UserControl_Loaded" Height="593" Width="1082">
     <UserControl.Resources>
         <conv:GameSizeConverter x:Key="sizeConv"/>
         <conv:DownloadLimitConverter x:Key="downloadLimitConv"/>
@@ -17,6 +16,9 @@
         <conv:InverseNullConverter x:Key="nullConv"/>
         <conv:UTCtoLocalTimeConverter x:Key="utcToLocalTimeConv"/>
         <conv:StringToArrayConverter x:Key="stringToArrayConv"/>
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -29,7 +31,7 @@
             </Grid>
         </Border>
         <TextBlock Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Text="{Binding Version,StringFormat='{}V {0}'}" Margin="20,0,0,5" Panel.ZIndex="1" MouseLeftButtonDown="DevMode_Click"/>
-        <ScrollViewer Grid.Row="1" Margin="10" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" Margin="10" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <TabControl x:Name="uiTabControl" TabStripPlacement="Left" SelectionChanged="TabControl_SelectionChanged" >
                 <TabItem Header="Application">
                     <StackPanel Margin="30,0,0,0">
@@ -42,14 +44,14 @@
                         <StackPanel Margin="0,10,0,0">
                             <TextBlock Text="Theme" FontSize="20" FontWeight="Bold"/>
                             <TextBlock Text="Installed Themes" Margin="10,5,0,0" FontSize="14"/>
-                            <StackPanel Orientation="Horizontal" Margin="10,10,0,0">
-                                <ComboBox x:Name="uiCbTheme" ItemsSource="{Binding Themes}" Width="520" HorizontalAlignment="Left" SelectionChanged="Themes_SelectionChanged">
+                            <WrapPanel Margin="10,10,0,0" ItemHeight="Auto">
+                                <ComboBox x:Name="uiCbTheme" ItemsSource="{Binding Themes}" MinWidth="260" MaxWidth="520" HorizontalAlignment="Left" SelectionChanged="Themes_SelectionChanged">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Width="480" ToolTip="{Binding Description}">
-                                                <StackPanel Width="450" HorizontalAlignment="Left">
+                                            <Grid MinWidth="240" MaxWidth="480" ToolTip="{Binding Description}">
+                                                <StackPanel MinWidth="220" MaxWidth="450" HorizontalAlignment="Left">
                                                     <TextBlock Text="{Binding DisplayName}" FontWeight="Bold"/>
-                                                    <TextBlock Text="{Binding Description}" Margin="0,0,0,0" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Description}" Margin="0,0,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Text="{Binding Author,StringFormat='{}Author: {0}'}" Margin="0,0,0,0" FontSize="10"/>
                                                 </StackPanel>
                                                 <Path Fill="{DynamicResource MahApps.Brushes.Accent}" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -86,18 +88,18 @@
                                     </Grid>
                                 </Button>
                                 <local:IconButton Text="Uninstall Theme" Kind="Danger" IsEnabled="{Binding IsCommunityThemeSelected}" FontSize="15" Icon="{StaticResource IconTrash}" IconMargin="0,0,5,2" Width="175" Margin="10,0,0,0" Click="UninstallTheme_Click"/>
-                                <local:IconButton Text="Open Theme Folder" FontSize="15" Icon="{StaticResource IconGameSettingsFolder}" IconMargin="0,0,5,2" Width="175" Margin="10,0,0,0" Click="OpenThemeFolder_Click"/>
-                            </StackPanel>
+                                <local:IconButton Text="Open Theme Folder" FontSize="15" Icon="{StaticResource IconGameSettingsFolder}" IconMargin="0,0,5,2" Width="175" Click="OpenThemeFolder_Click" Height="35"/>
+                            </WrapPanel>
                             <TextBlock Text="Community Themes" Margin="10,10,0,0" FontSize="14"/>
-                            <StackPanel Orientation="Horizontal" Margin="10,5,0,0">
+                            <WrapPanel Margin="10,5,0,0" ItemHeight="Auto">
                                 <Grid>
-                                    <ComboBox x:Name="uiCBCommunityThemes" ItemsSource="{Binding CommunityThemes}" Width="520" HorizontalAlignment="Left" DropDownOpened="CommunityThemes_DropDownOpened">
+                                    <ComboBox x:Name="uiCBCommunityThemes" ItemsSource="{Binding CommunityThemes}" MinWidth="260" MaxWidth="520" HorizontalAlignment="Left" DropDownOpened="CommunityThemes_DropDownOpened">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
-                                                <Grid Width="480" ToolTip="{Binding Description}">
-                                                    <StackPanel Width="450" HorizontalAlignment="Left">
+                                                <Grid MinWidth="240" MaxWidth="480" ToolTip="{Binding Description}">
+                                                    <StackPanel MinWidth="220" MaxWidth="450" HorizontalAlignment="Left">
                                                         <TextBlock Text="{Binding DisplayName}" FontWeight="Bold"/>
-                                                        <TextBlock Text="{Binding Description}" Margin="0,0,0,0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Description}" Margin="0,0,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Text="{Binding Author,StringFormat='{}Author: {0}'}" Margin="0,0,0,0" FontSize="10"/>
                                                     </StackPanel>
                                                     <Path Fill="{DynamicResource MahApps.Brushes.Accent}" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -147,8 +149,8 @@
                                     </Grid>
                                 </Button>
                                 <local:IconButton Text="Install Theme" Height="55" FontSize="15" Icon="{StaticResource IconGameSettingsInstallation}" IconMargin="0,0,10,0" IconScale="1" Width="175" Margin="10,0,0,0" Click="InstallCommunityTheme_Click"/>
-                                <local:IconButton Text="Open Repository" Height="55" FontSize="15" Icon="{StaticResource IconGameSettingsGithub}" IconMargin="-10,0,10,0" IconScale="1" Width="175" Margin="10,0,0,0" Click="OpenCommunityThemeRepository_Click"/>
-                            </StackPanel>
+                                <local:IconButton Text="Open Repository" Height="55" FontSize="15" Icon="{StaticResource IconGameSettingsGithub}" IconMargin="-10,0,10,0" IconScale="1" Width="175" Margin="10,6,0,0" Click="OpenCommunityThemeRepository_Click"/>
+                            </WrapPanel>
                         </StackPanel>
                         <StackPanel Margin="0,15,0,0">
                             <TextBlock Text="Library" FontSize="20" FontWeight="Bold"/>
@@ -160,7 +162,7 @@
                     <StackPanel Margin="30,0,0,0">
                         <StackPanel Margin="0,0,0,0">
                             <TextBlock Text="Download" FontSize="20" FontWeight="Bold"/>
-                            <GroupBox Header="Download Bandwidth Limit" Margin="10,10,0,0" Width="510" HorizontalAlignment="Left" mah:ControlsHelper.CornerRadius="4">
+                            <GroupBox Header="Download Bandwidth Limit" Margin="10,10,0,0" MinWidth="260" MaxWidth="510" HorizontalAlignment="Left" mah:ControlsHelper.CornerRadius="4" Width="508">
                                 <StackPanel>
                                     <TextBox Text="{Binding DownloadLimitUIValue,UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,5" MaxLength="8" mah:TextBoxHelper.UseFloatingWatermark="True" mah:ControlsHelper.CornerRadius="5" mah:TextBoxHelper.Watermark="{Binding DownloadLimitUIValue,Converter={StaticResource downloadLimitConv}}" PreviewTextInput="DownloadLimit_InputValidation" TextChanged="DownloadLimit_InputValidation" KeyDown="DownloadLimit_Save"/>
                                     <local:IconButton Text="Save" FontSize="15" Icon="{StaticResource IconGameSettingsSave}" IconMargin="0,0,5,2" Width="80" Height="30" HorizontalAlignment="Left" Click="DownloadLimit_Save"/>
@@ -191,12 +193,12 @@
                         <StackPanel Margin="0,0,0,0">
                             <TextBlock Text="User" FontSize="20" FontWeight="Bold"/>
                             <local:IconButton Text="Edit User" Icon="{StaticResource IconEditUser}" IconMargin="0,0,7,2" IconScale="0.9" VerticalAlignment="Bottom" HorizontalAlignment="Left" Height="30" Margin="10,10,0,0" Width="205" FontSize="15" Click="EditUser_Click"/>
-                            
+
                             <TextBlock Text="Profile" FontSize="20" FontWeight="Bold" Margin="0,10,0,0"/>
                             <local:IconButton Text="Change Profile" Icon="{StaticResource IconChangeProfile}" IconMargin="0,0,5,2" VerticalAlignment="Bottom" HorizontalAlignment="Left" Height="30" Margin="10,10,0,0" Width="205" FontSize="15" Click="ChangeUserProfile_Click"/>
                             <local:IconButton Kind="Danger" Text="Logout from this Device" Icon="{StaticResource IconLogout}" IconMargin="0,0,5,2" VerticalAlignment="Bottom" HorizontalAlignment="Left" Height="30" Margin="10,10,0,0" Width="205" FontSize="15" Click="Logout_Click"/>
                             <local:IconButton Kind="Danger" Text="Logout from all Devices" Icon="{StaticResource IconLogout}" IconMargin="0,0,5,2" VerticalAlignment="Bottom" HorizontalAlignment="Left" Height="30" Margin="10,10,0,0" Width="205" FontSize="15" Click="LogoutFromAllDevices_Click"/>
-                            
+
                         </StackPanel>
                     </StackPanel>
                 </TabItem>
@@ -207,7 +209,7 @@
                             <!--<settingsComponents:RootPathUserControl Margin="10,10,0,0"/>-->
                             <StackPanel Margin="10,10,0,0">
                                 <TextBlock Text="Root Directories (A 'GameVault' subfolder will be created)" Margin="0,2,0,2" FontSize="15"/>
-                                <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" Width="550" HorizontalAlignment="Left">
+                                <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" MinWidth="260" MaxWidth="550" HorizontalAlignment="Stretch">
                                     <ItemsControl ItemsSource="{Binding RootDirectories}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -217,7 +219,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBox IsReadOnly="True" Text="{Binding Path=.Uri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="File path or URL" mah:ControlsHelper.CornerRadius="5" Width="500" Height="20"/>
+                                                    <TextBox IsReadOnly="True" Text="{Binding Path=.Uri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="File path or URL" mah:ControlsHelper.CornerRadius="5" MinWidth="220" MaxWidth="500" Height="20"/>
                                                     <Button Style="{StaticResource ButtonWrapper}" Height="30" Width="30" Cursor="Hand" Click="RemoveRootDirectory_Click">
                                                         <!--="RemoveCustomCloudSaveManifest_Click">-->
                                                         <Grid Style="{DynamicResource HoverEffect}"  Background="Transparent"  RenderTransformOrigin="0.5,0.5">
@@ -241,14 +243,14 @@
                         </StackPanel>
                         <StackPanel Margin="0,10,0,0">
                             <TextBlock Text="Cache Management" FontSize="20" FontWeight="Bold"/>
-                            <StackPanel Margin="10,10,0,0" Orientation="Horizontal">
+                            <WrapPanel Margin="10,10,0,0">
                                 <local:IconButton Text="Clear image cache" FontSize="15" Icon="{StaticResource IconCleanup}" IconScale="0.08" IconMargin="-110,-100,-105,-100" Width="175" Height="30" HorizontalAlignment="Left" ToolTip="Clears the entire image cache" Click="ClearImageCache_Clicked"/>
                                 <TextBlock Text="{Binding ImageCacheSize,Converter={StaticResource sizeConv},StringFormat={}({0})}" FontSize="20" Margin="10,0,0,0"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="10,10,0,0">
+                            </WrapPanel>
+                            <WrapPanel Margin="10,10,0,0">
                                 <local:IconButton Text="Clear offline cache" FontSize="15" Icon="{StaticResource IconCleanup}" IconScale="0.08" IconMargin="-110,-100,-105,-100" Width="175" Height="30" HorizontalAlignment="Left" Click="ClearOfflineCache_Clicked" ToolTip="Clears the entire offline cache"/>
                                 <TextBlock Text="{Binding OfflineCacheSize,Converter={StaticResource sizeConv},StringFormat={}({0})}" FontSize="20" Margin="10,0,0,0"/>
-                            </StackPanel>
+                            </WrapPanel>
                             <GroupBox Header="ignored Executables" Margin="10,15,20,0" mah:ControlsHelper.CornerRadius="5">
                                 <Grid>
                                     <TextBox mah:ControlsHelper.CornerRadius="5" Text="{Binding IgnoreList,Converter={StaticResource stringToArrayConv},ConverterParameter=','}" mah:TextBoxHelper.Watermark="Edit ignorelist (seperate entries by comma)" Margin="0,0,120,0" TextWrapping="Wrap"/>
@@ -534,7 +536,7 @@
                                             <TextBlock Text="Custom Ludusavi Manifests" Margin="0,2,0,2" FontSize="15"/>
                                             <CheckBox Content="Use Primary Manifest" IsChecked="{Binding UsePrimaryCloudSaveManifest}" mah:CheckBoxHelper.CheckCornerRadius="5" Margin="15,0,0,0" ToolTip="Disable primary Ludusavi manifest to only use the custom ones"/>
                                         </StackPanel>
-                                        <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" Width="550" HorizontalAlignment="Left">
+                                        <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" MinWidth="260" MaxWidth="550" HorizontalAlignment="Stretch">
                                             <ItemsControl ItemsSource="{Binding CustomCloudSaveManifests}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -544,7 +546,7 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
                                                         <StackPanel Orientation="Horizontal">
-                                                            <TextBox Text="{Binding Path=.Uri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="File path or URL" mah:ControlsHelper.CornerRadius="5" Width="500" Height="20"/>
+                                                            <TextBox Text="{Binding Path=.Uri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="File path or URL" mah:ControlsHelper.CornerRadius="5" MinWidth="220" MaxWidth="500" Height="20"/>
                                                             <Button Style="{StaticResource ButtonWrapper}" Height="30" Width="30" Cursor="Hand" Click="RemoveCustomCloudSaveManifest_Click">
                                                                 <Grid Style="{DynamicResource HoverEffect}"  Background="Transparent"  RenderTransformOrigin="0.5,0.5">
                                                                     <Path Data="m11.25 4.75l-6.5 6.5m0-6.5l6.5 6.5" Stroke="IndianRed" StrokeThickness="2">

@@ -33,15 +33,22 @@ namespace gamevault.ViewModels
         }
         public void UpdateTaskbarProgress()
         {
-            List<int> downloadProgresses = new List<int>();
-            foreach (var download in DownloadsViewModel.Instance.DownloadedGames)
+            try
             {
-                if (download.IsDownloading())
+                List<int> downloadProgresses = new List<int>();
+                foreach (var download in DownloadsViewModel.Instance.DownloadedGames.ToList())
                 {
-                    downloadProgresses.Add(download.GetDownloadProgress());
+                    if (download?.IsDownloading() == true)
+                    {
+                        downloadProgresses.Add(download.GetDownloadProgress());
+                    }
                 }
+                TaskbarProgress = downloadProgresses.Count > 0 ? (downloadProgresses.Average() / 100) : 0.0;
             }
-            TaskbarProgress = downloadProgresses.Count > 0 ? (downloadProgresses.Average() / 100) : 0.0;
+            catch
+            {
+                TaskbarProgress = 0.0;
+            }
         }
         #region Singleton
         private static MainWindowViewModel instance = null;

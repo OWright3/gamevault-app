@@ -20,6 +20,7 @@ namespace gamevault.UserControls
         private DownloadSpeedCalculator downloadSpeedCalc { get; set; }
         private GameDownloadViewModel ViewModel { get; set; }
         private bool IsDownloadActive = false;
+        private bool downloadCompletionHandled = false;
 
         private string m_DownloadPath { get; set; }
         private bool extractionCancelled = false;
@@ -287,6 +288,17 @@ namespace gamevault.UserControls
             }
         }
         
+        public void StartDownload(bool tryResume = false)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke((Action)(() => StartDownload(tryResume)));
+                return;
+            }
+
+            _ = DownloadGame(tryResume);
+        }
+
         public GameDownloadUserControl(Game game, string rootDirectory, bool download)
         {
             InitializeComponent();
@@ -306,7 +318,7 @@ namespace gamevault.UserControls
             InitRetryTimer();
             if (download)
             {
-                _ = DownloadGame();
+                StartDownload();
             }
             else
             {
@@ -344,19 +356,36 @@ namespace gamevault.UserControls
         
         private void UpdateDataSizeUI()
         {
-            Task.Run(() =>
+            _ = Task.Run(() =>
             {
                 try
                 {
                     double size = 0;
-                    foreach (FileInfo file in new DirectoryInfo(m_DownloadPath).GetFiles("*", SearchOption.AllDirectories))
+                    if (Directory.Exists(m_DownloadPath))
                     {
-                        file.Refresh();
-                        size += file.Length;
+                        foreach (FileInfo file in new DirectoryInfo(m_DownloadPath).GetFiles("*", SearchOption.AllDirectories))
+                        {
+                            file.Refresh();
+                            size += file.Length;
+                        }
                     }
-                    ViewModel.TotalDataSize = size;
+
+                    App.Current?.Dispatcher.BeginInvoke((Action)(() =>
+                    {
+                        try
+                        {
+                            ViewModel.TotalDataSize = size;
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to update download data size UI: {ex}");
+                        }
+                    }));
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to calculate download data size: {ex}");
+                }
             });
 
         }
@@ -388,88 +417,127 @@ namespace gamevault.UserControls
         }
         public bool IsGameIdDownloading(int id)
         {
-            if (IsDownloadActive == true && ViewModel.Game.ID == id)
-            {
-                return true;
-            }
-            return false;
+            return IsDownloadActive == true && ViewModel?.Game?.ID == id;
         }
         public int GetGameId()
         {
-            return ViewModel.Game.ID;
+            return ViewModel?.Game?.ID ?? -1;
         }
         public int GetCoverID()
         {
-            return ViewModel.Game.Metadata.Cover.ID;
+            return ViewModel?.Game?.Metadata?.Cover?.ID ?? -1;
         }
         public int GetDownloadProgress()
         {
-            return ViewModel.GameDownloadProgress;
+            return ViewModel?.GameDownloadProgress ?? 0;
         }
         public void CancelDownload()
         {
-            if (client == null)
-            {
-                try
-                {
-                    File.Delete($"{m_DownloadPath}\\gamevault-metadata");
-                    File.Delete($"{m_DownloadPath}\\{Path.GetFileName(ViewModel.Game.Path)}");
-                }
-                catch { }
-            }
-            else
-            {
-                client.Cancel();
-            }
-            //client.Dispose();
-            IsDownloadActive = false;
-            ViewModel.IsDownloadPaused = false;
-            ViewModel.State = "Download Cancelled";
-            ViewModel.DownloadUIVisibility = System.Windows.Visibility.Hidden;
-            ViewModel.DownloadFailedVisibility = System.Windows.Visibility.Visible;
-
-            MainWindowViewModel.Instance.UpdateTaskbarProgress();
-        }
-        private async Task DownloadGame(bool tryResume = false)
-        {
-            IsDownloadActive = true;
-            ViewModel.State = "Downloading...";
-            ViewModel.DownloadUIVisibility = System.Windows.Visibility.Visible;
-            ViewModel.DownloadFailedVisibility = System.Windows.Visibility.Hidden;
-
-            if (!Directory.Exists(m_DownloadPath)) { Directory.CreateDirectory(m_DownloadPath); }
-            Dictionary<string,string> additionalRequestHeaders = new Dictionary<string,string>();
-            if (SettingsViewModel.Instance.DownloadLimit > 0)
-            {
-                additionalRequestHeaders.Add("X-Download-Speed-Limit", SettingsViewModel.Instance.DownloadLimit.ToString());
-            }
-            client = new HttpClientDownloadWithProgress($"{SettingsViewModel.Instance.ServerUrl}/api/games/{ViewModel.Game.ID}/download", m_DownloadPath, Path.GetFileName(ViewModel.Game.Path), additionalRequestHeaders);
-            client.ProgressChanged += DownloadProgress;
-            startTime = DateTime.Now;
-            downloadSpeedCalc = new DownloadSpeedCalculator();
             try
             {
-                await client.StartDownload(tryResume);
-                await CacheHelper.CreateOfflineCacheAsync(ViewModel.Game);
-            }
-            catch (Exception ex)
-            {
+                if (client == null)
+                {
+                    try
+                    {
+                        File.Delete($"{m_DownloadPath}\\gamevault-metadata");
+                        if (!string.IsNullOrWhiteSpace(ViewModel?.Game?.Path))
+                        {
+                            File.Delete($"{m_DownloadPath}\\{Path.GetFileName(ViewModel.Game.Path)}");
+                        }
+                    }
+                    catch { }
+                }
+                else
+                {
+                    client.Cancel();
+                }
+
                 IsDownloadActive = false;
-                ViewModel.State = $"Error: '{ex.Message}'";
+                ViewModel.IsDownloadPaused = false;
+                ViewModel.State = "Download Cancelled";
                 ViewModel.DownloadUIVisibility = System.Windows.Visibility.Hidden;
                 ViewModel.DownloadFailedVisibility = System.Windows.Visibility.Visible;
 
-                if (downloadRetryTimer.Data != "error")
-                {
-                    if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
-                        ToastMessageHelper.CreateToastMessage("Download Failed", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game.ID}.{ViewModel.Game.Metadata.Cover?.ID}");
-                }
-                StartRetryTimer();
                 MainWindowViewModel.Instance.UpdateTaskbarProgress();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to cancel download: {ex}");
+            }
+        }
+        private async Task DownloadGame(bool tryResume = false)
+        {
+            try
+            {
+                IsDownloadActive = true;
+                downloadCompletionHandled = false;
+                ViewModel.State = "Downloading...";
+                ViewModel.DownloadUIVisibility = System.Windows.Visibility.Visible;
+                ViewModel.DownloadFailedVisibility = System.Windows.Visibility.Hidden;
+
+                if (!Directory.Exists(m_DownloadPath))
+                {
+                    Directory.CreateDirectory(m_DownloadPath);
+                }
+
+                Dictionary<string, string> additionalRequestHeaders = new Dictionary<string, string>();
+                if (SettingsViewModel.Instance.DownloadLimit > 0)
+                {
+                    additionalRequestHeaders.Add("X-Download-Speed-Limit", SettingsViewModel.Instance.DownloadLimit.ToString());
+                }
+
+                string fallbackFileName = Path.GetFileName(ViewModel.Game?.Path);
+                if (string.IsNullOrWhiteSpace(fallbackFileName))
+                {
+                    fallbackFileName = $"{ViewModel.Game?.ID ?? 0}.download";
+                }
+
+                client = new HttpClientDownloadWithProgress($"{SettingsViewModel.Instance.ServerUrl}/api/games/{ViewModel.Game.ID}/download", m_DownloadPath, fallbackFileName, additionalRequestHeaders);
+                client.ProgressChanged -= DownloadProgress;
+                client.ProgressChanged += DownloadProgress;
+                startTime = DateTime.Now;
+                downloadSpeedCalc = new DownloadSpeedCalculator();
+
+                await client.StartDownload(tryResume);
+
+                if (ViewModel.Game != null)
+                {
+                    await CacheHelper.CreateOfflineCacheAsync(ViewModel.Game);
+                }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    IsDownloadActive = false;
+                    ViewModel.State = $"Error: '{ex.Message}'";
+                    ViewModel.DownloadUIVisibility = System.Windows.Visibility.Hidden;
+                    ViewModel.DownloadFailedVisibility = System.Windows.Visibility.Visible;
+
+                    if (downloadRetryTimer?.Data != "error")
+                    {
+                        if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
+                        {
+                            ToastMessageHelper.CreateToastMessage("Download Failed", ViewModel.Game?.Title ?? "Game", $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game?.ID}.{ViewModel.Game?.Metadata?.Cover?.ID}");
+                        }
+                    }
+
+                    StartRetryTimer();
+                    MainWindowViewModel.Instance.UpdateTaskbarProgress();
+                }
+                catch (Exception uiEx)
+                {
+                    Debug.WriteLine($"Failed to update download failure UI: {uiEx}");
+                }
             }
         }
         private void StartRetryTimer()
         {
+            if (downloadRetryTimer == null)
+            {
+                return;
+            }
+
             downloadRetryTimer.Interval = TimeSpan.FromSeconds(downloadRetryTimerTickValue);
             downloadRetryTimerTickValue *= 2;
             downloadRetryTimer.Start();
@@ -498,7 +566,7 @@ namespace gamevault.UserControls
 
             ViewModel.DownloadInfo = string.Empty;
             ViewModel.GameDownloadProgress = 0;
-            _ = DownloadGame(true);
+            StartDownload(true);
         }
         private void PauseResume_Click(object sender, RoutedEventArgs e)
         {
@@ -506,7 +574,7 @@ namespace gamevault.UserControls
             {
                 ViewModel.IsDownloadResumed = false;
                 ViewModel.IsDownloadPaused = false;
-                _ = DownloadGame(true);
+                StartDownload(true);
             }
             else
             {
@@ -531,76 +599,107 @@ namespace gamevault.UserControls
         }
         private void DownloadProgress(long totalFileSize, long currentBytesDownloaded, long totalBytesDownloaded, double? progressPercentage, long resumePosition)
         {
-            App.Current.Dispatcher.BeginInvoke((Action)delegate
+            App.Current?.Dispatcher.BeginInvoke((Action)delegate
             {
-                bool isResume = resumePosition != -1;
-                var numerator = isResume ? currentBytesDownloaded : totalBytesDownloaded;
-                var denumirator = isResume ? totalFileSize - resumePosition : totalFileSize;
-                if (isResume)
+                try
                 {
-                    ViewModel.IsDownloadResumed = true;
-                }
-                if (currentBytesDownloaded == 0)
-                {
-                    ViewModel.DownloadInfo = $"{FormatBytesHumanReadable(totalBytesDownloaded)}" + $" of {FormatBytesHumanReadable((double)totalFileSize)}";
-                }
-                else
-                {
-                    downloadSpeedCalc.UpdateSpeed(currentBytesDownloaded);
-                    ViewModel.DownloadInfo = $"{$"{FormatBytesHumanReadable(downloadSpeedCalc.GetCurrentSpeed(), 1, 1000)}/s"}" +
-               $" - {FormatBytesHumanReadable(totalBytesDownloaded)}" +
-               $" of {FormatBytesHumanReadable((double)totalFileSize)}" +
-               $" | Time left: {CalculateTimeLeft(denumirator, numerator, (DateTime.Now - startTime).TotalMilliseconds)}";
-                }
+                    if (ViewModel == null || progressPercentage == null)
+                        return;
 
-                if (ViewModel.GameDownloadProgress == (int)progressPercentage)
-                {
-                    return;
+                    bool isResume = resumePosition != -1;
+                    var numerator = isResume ? currentBytesDownloaded : totalBytesDownloaded;
+                    var denominator = isResume ? totalFileSize - resumePosition : totalFileSize;
+                    if (isResume)
+                    {
+                        ViewModel.IsDownloadResumed = true;
+                    }
+                    if (currentBytesDownloaded == 0)
+                    {
+                        ViewModel.DownloadInfo = $"{FormatBytesHumanReadable(totalBytesDownloaded)}" + $" of {FormatBytesHumanReadable((double)totalFileSize)}";
+                    }
+                    else
+                    {
+                        downloadSpeedCalc?.UpdateSpeed(currentBytesDownloaded);
+                        ViewModel.DownloadInfo = $"{$"{FormatBytesHumanReadable(downloadSpeedCalc?.GetCurrentSpeed() ?? 0, 1, 1000)}/s"}" +
+                   $" - {FormatBytesHumanReadable(totalBytesDownloaded)}" +
+                   $" of {FormatBytesHumanReadable((double)totalFileSize)}" +
+                   $" | Time left: {CalculateTimeLeft(denominator, numerator, (DateTime.Now - startTime).TotalMilliseconds)}";
+                    }
+
+                    int progress = Math.Max(0, Math.Min(100, (int)progressPercentage.Value));
+                    if (ViewModel.GameDownloadProgress == progress)
+                    {
+                        return;
+                    }
+                    ViewModel.GameDownloadProgress = progress;
+                    if (ViewModel.GameDownloadProgress == 100)
+                    {
+                        DownloadCompleted();
+                    }
+                    MainWindowViewModel.Instance.UpdateTaskbarProgress();
                 }
-                ViewModel.GameDownloadProgress = (int)progressPercentage;
-                if (ViewModel.GameDownloadProgress == 100)
+                catch (Exception ex)
                 {
-                    DownloadCompleted();
+                    Debug.WriteLine($"Failed to update download progress UI: {ex}");
                 }
-                MainWindowViewModel.Instance.UpdateTaskbarProgress();
             });
         }
 
         private void DownloadCompleted()
         {
-            if (client == null)
-                return;
-
-            UpdateDataSizeUI();
-            ViewModel.DownloadUIVisibility = System.Windows.Visibility.Hidden;
-            IsDownloadActive = false;
-            ViewModel.State = "Downloaded";
-            uiBtnExtract.IsEnabled = true;
-            ViewModel.InstallationStepperProgress = 0;
             try
             {
-                if (File.Exists($"{m_DownloadPath}\\gamevault-metadata"))
-                    File.Delete($"{m_DownloadPath}\\gamevault-metadata");
-            }
-            catch { }
-            if (!Directory.Exists(ViewModel.InstallPath))
-            {
-                Directory.CreateDirectory(ViewModel.InstallPath);
-            }
-            MainWindowViewModel.Instance.Library.GetGameInstalls().AddSystemFileWatcher(ViewModel.InstallPath);
+                if (downloadCompletionHandled || client == null)
+                    return;
 
-            if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
-                ToastMessageHelper.CreateToastMessage("Download Complete", ViewModel.Game.Title, $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game.ID}.{ViewModel.Game.Metadata?.Cover?.ID}");
+                downloadCompletionHandled = true;
 
-            if (SettingsViewModel.Instance.AutoExtract)
-            {
-                App.Current.Dispatcher.BeginInvoke((Action)(async () =>
+                UpdateDataSizeUI();
+                ViewModel.DownloadUIVisibility = System.Windows.Visibility.Hidden;
+                IsDownloadActive = false;
+                ViewModel.State = "Downloaded";
+                uiBtnExtract.IsEnabled = true;
+                ViewModel.InstallationStepperProgress = 0;
+                try
                 {
-                    uiBtnExtract.IsEnabled = false;
-                    await Task.Delay(3000);
-                    await Extract();
-                    uiBtnExtract.IsEnabled = true;
-                }));
+                    if (File.Exists($"{m_DownloadPath}\\gamevault-metadata"))
+                        File.Delete($"{m_DownloadPath}\\gamevault-metadata");
+                }
+                catch { }
+                if (!Directory.Exists(ViewModel.InstallPath))
+                {
+                    Directory.CreateDirectory(ViewModel.InstallPath);
+                }
+                MainWindowViewModel.Instance.Library.GetGameInstalls().AddSystemFileWatcher(ViewModel.InstallPath);
+
+                if (!App.Instance.IsWindowActiveAndControlInFocus(MainControl.Downloads))
+                {
+                    ToastMessageHelper.CreateToastMessage("Download Complete", ViewModel.Game?.Title ?? "Game", $"{LoginManager.Instance.GetUserProfile().ImageCacheDir}/gbox/{ViewModel.Game?.ID}.{ViewModel.Game?.Metadata?.Cover?.ID}");
+                }
+
+                if (SettingsViewModel.Instance.AutoExtract)
+                {
+                    App.Current.Dispatcher.BeginInvoke((Action)(async () =>
+                    {
+                        try
+                        {
+                            uiBtnExtract.IsEnabled = false;
+                            await Task.Delay(3000);
+                            await Extract();
+                            uiBtnExtract.IsEnabled = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Auto extract failed: {ex}");
+                            uiBtnExtract.IsEnabled = true;
+                            ViewModel.State = "Auto extraction failed";
+                        }
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to complete download: {ex}");
             }
         }
 

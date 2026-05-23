@@ -1,4 +1,4 @@
-using gamevault.Helper;
+﻿using gamevault.Helper;
 using gamevault.Models;
 using gamevault.ViewModels;
 using MahApps.Metro.Controls;
@@ -183,16 +183,16 @@ namespace gamevault.UserControls
         }
         private async Task ProcessGamesData(PaginatedData<Game> gameResult)
         {
-            await Task.Run(() =>
+            if (gameResult?.Data == null || gameResult.Data.Length == 0)
+                return;
+
+            await App.Current.Dispatcher.InvokeAsync(() =>
             {
                 foreach (Game game in gameResult.Data)
                 {
-                    App.Current.Dispatcher.Invoke((Action)delegate
-                    {
-                        ViewModel.GameCards.Add(game);
-                    });
+                    ViewModel.GameCards.Add(game);
                 }
-            });
+            }, DispatcherPriority.Background);
         }
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
@@ -214,11 +214,23 @@ namespace gamevault.UserControls
         private void Filter_Click(object sender, MouseButtonEventArgs e)
         {
             e.Handled = true;
+            ToggleFilterPanel();
+        }
+
+        private void FilterButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            ToggleFilterPanel();
+        }
+
+        private void ToggleFilterPanel()
+        {
             if (!uiExpanderGameCards.IsExpanded)
             {
                 uiExpanderGameCards.IsExpanded = true;
             }
             ViewModel.FilterVisibility = ViewModel.FilterVisibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+            UpdateServerGamesScrollHeight();
         }
         private void OpenFilterIfClosed()
         {
@@ -285,14 +297,7 @@ namespace gamevault.UserControls
 
         private ScrollViewer? GetServerGamesScrollViewer()
         {
-            try
-            {
-                return (ScrollViewer?)uiServerGamesItemsControl.Template.FindName("PART_ItemsScroll", uiServerGamesItemsControl);
-            }
-            catch
-            {
-                return null;
-            }
+            return uiServerGamesScrollViewer;
         }
 
         private void ServerGamesHeader_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -307,6 +312,30 @@ namespace gamevault.UserControls
         private void ServerGamesScroll_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             UpdateServerGamesWrapWidth(e.NewSize.Width);
+        }
+
+        private void ServerGamesBody_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateServerGamesScrollHeight();
+            UpdateServerGamesWrapWidth(e.NewSize.Width);
+        }
+
+        private void UpdateServerGamesScrollHeight()
+        {
+            ScrollViewer? scrollViewer = GetServerGamesScrollViewer();
+            if (scrollViewer == null || uiExpanderGameCards == null)
+                return;
+
+            double availableHeight = uiExpanderGameCards.ActualHeight - 55;
+            if (ViewModel.FilterVisibility == Visibility.Visible)
+            {
+                availableHeight -= 230;
+            }
+
+            if (availableHeight > 120)
+            {
+                scrollViewer.Height = availableHeight;
+            }
         }
 
         private WrapPanel? GetServerGamesWrapPanel()
@@ -562,7 +591,20 @@ namespace gamevault.UserControls
         private async void Download_Click(object sender, RoutedEventArgs e)
         {
             e.Handled = true;
-            await MainWindowViewModel.Instance.Downloads.TryStartDownload((Game)(((FrameworkElement)sender).DataContext));
+            try
+            {
+                if (sender is not FrameworkElement element || element.DataContext is not Game game)
+                {
+                    MainWindowViewModel.Instance.AppBarText = "Could not start download: missing game data";
+                    return;
+                }
+
+                await MainWindowViewModel.Instance.Downloads.TryStartDownload(game);
+            }
+            catch (Exception ex)
+            {
+                MainWindowViewModel.Instance.AppBarText = $"Could not start download: {ex.Message}";
+            }
         }
         private void RefreshFilterCounter()
         {
